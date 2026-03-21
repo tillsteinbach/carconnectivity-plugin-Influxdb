@@ -23,7 +23,7 @@ from carconnectivity_plugins.base.plugin import BasePlugin
 from carconnectivity_plugins.influxdb._version import __version__
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Any, Dict, Optional
     from re import Pattern
     from carconnectivity.carconnectivity import CarConnectivity
 
@@ -90,15 +90,70 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         else:
             self.active_config['only_write_changes'] = False
 
+        if 'verify_ssl' in config and config['verify_ssl'] is not None:
+            self.active_config['verify_ssl'] = config['verify_ssl']
+        else:
+            self.active_config['verify_ssl'] = None
+
+        if 'ssl_ca_cert' in config and config['ssl_ca_cert']:
+            self.active_config['ssl_ca_cert'] = config['ssl_ca_cert']
+        else:
+            self.active_config['ssl_ca_cert'] = None
+
+        if 'cert' in config and config['cert']:
+            cert = config['cert']
+            if isinstance(cert, list):
+                self.active_config['cert'] = tuple(cert)
+            else:
+                self.active_config['cert'] = cert
+        else:
+            self.active_config['cert'] = None
+
+        if 'proxy' in config and config['proxy']:
+            self.active_config['proxy'] = config['proxy']
+        else:
+            self.active_config['proxy'] = None
+
+        if 'auth_basic' in config and config['auth_basic'] is not None:
+            self.active_config['auth_basic'] = config['auth_basic']
+        else:
+            self.active_config['auth_basic'] = False
+
+        if 'username' in config and config['username']:
+            self.active_config['username'] = config['username']
+        else:
+            self.active_config['username'] = None
+
+        if 'password' in config and config['password']:
+            self.active_config['password'] = config['password']
+        else:
+            self.active_config['password'] = None
+
     def startup(self) -> None:
         LOG.info("Starting InfluxDB plugin")
         self._stop_event.clear()
 
-        self._influxdb_client = InfluxDBClient(
-            url=self.active_config['url'],
-            token=self.active_config['token'],
-            org=self.active_config['org'],
-        )
+        influxdb_kwargs: Dict[str, Any] = {
+            'url': self.active_config['url'],
+            'token': self.active_config['token'],
+            'org': self.active_config['org'],
+        }
+        if self.active_config['verify_ssl'] is not None:
+            influxdb_kwargs['verify_ssl'] = self.active_config['verify_ssl']
+        if self.active_config['ssl_ca_cert'] is not None:
+            influxdb_kwargs['ssl_ca_cert'] = self.active_config['ssl_ca_cert']
+        if self.active_config['cert'] is not None:
+            influxdb_kwargs['cert'] = self.active_config['cert']
+        if self.active_config['proxy'] is not None:
+            influxdb_kwargs['proxy'] = self.active_config['proxy']
+        if self.active_config['auth_basic']:
+            influxdb_kwargs['auth_basic'] = self.active_config['auth_basic']
+        if self.active_config['username'] is not None:
+            influxdb_kwargs['username'] = self.active_config['username']
+        if self.active_config['password'] is not None:
+            influxdb_kwargs['password'] = self.active_config['password']
+
+        self._influxdb_client = InfluxDBClient(**influxdb_kwargs)
         self._write_api = self._influxdb_client.write_api(write_options=SYNCHRONOUS)
 
         # Register observer for carconnectivity events.

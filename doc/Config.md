@@ -60,7 +60,14 @@ These are the valid options for the InfluxDB plugin
                     "bucket": "your-bucket", // InfluxDB bucket to write data into
                     "measurement": "carconnectivity", // InfluxDB measurement name
                     "tag_filter_regex": "carconnectivity\\.0\\./garage/WVWAB312[0-9A-Z]+/.*", // Regex to exclude matching attribute paths
-                    "only_write_changes": false // If true, only write data when the value actually changes; by default every update is written
+                    "only_write_changes": false, // If true, only write data when the value actually changes; by default every update is written
+                    "verify_ssl": true, // Set to false to disable SSL certificate verification (not recommended for production)
+                    "ssl_ca_cert": "/path/to/ca-bundle.crt", // Path to a CA certificate bundle file or directory for SSL verification
+                    "cert": "/path/to/client.crt", // Path to a client-side certificate file for mutual TLS; use a list ["/path/to/cert", "/path/to/key"] to specify separate cert and key files
+                    "proxy": "http://proxy.example.com:8080", // Optional HTTP proxy URL
+                    "auth_basic": false, // Set to true to use HTTP Basic Authentication instead of token auth (for InfluxDB 1.8 compatibility)
+                    "username": "your-username", // Username for HTTP Basic Authentication (requires auth_basic: true)
+                    "password": "your-password" // Password for HTTP Basic Authentication (requires auth_basic: true)
                 }
             }
         ]
