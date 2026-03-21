@@ -60,17 +60,27 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
             raise ConfigurationError('No InfluxDB URL specified in config ("url" missing)')
         self.active_config['url'] = config['url']
 
+        if 'auth_basic' in config and config['auth_basic'] is not None:
+            self.active_config['auth_basic'] = config['auth_basic']
+        else:
+            self.active_config['auth_basic'] = False
+
         if 'token' not in config or not config['token']:
-            raise ConfigurationError('No InfluxDB token specified in config ("token" missing)')
-        self.active_config['token'] = config['token']
+            if not self.active_config['auth_basic']:
+                raise ConfigurationError('No InfluxDB token specified in config ("token" missing)')
+            self.active_config['token'] = None
+        else:
+            self.active_config['token'] = config['token']
 
-        if 'org' not in config or not config['org']:
-            raise ConfigurationError('No InfluxDB organisation specified in config ("org" missing)')
-        self.active_config['org'] = config['org']
+        if 'org' in config and config['org']:
+            self.active_config['org'] = config['org']
+        else:
+            self.active_config['org'] = 'carconnectivity'
 
-        if 'bucket' not in config or not config['bucket']:
-            raise ConfigurationError('No InfluxDB bucket specified in config ("bucket" missing)')
-        self.active_config['bucket'] = config['bucket']
+        if 'bucket' in config and config['bucket']:
+            self.active_config['bucket'] = config['bucket']
+        else:
+            self.active_config['bucket'] = 'carconnectivity'
 
         if 'measurement' in config and config['measurement']:
             self.active_config['measurement'] = config['measurement']
@@ -114,17 +124,16 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         else:
             self.active_config['proxy'] = None
 
-        if 'auth_basic' in config and config['auth_basic'] is not None:
-            self.active_config['auth_basic'] = config['auth_basic']
-        else:
-            self.active_config['auth_basic'] = False
-
         if 'username' in config and config['username']:
+            if not self.active_config['auth_basic']:
+                raise ConfigurationError('Username specified in config but auth_basic is not enabled')
             self.active_config['username'] = config['username']
         else:
             self.active_config['username'] = None
 
         if 'password' in config and config['password']:
+            if not self.active_config['auth_basic']:
+                raise ConfigurationError('Password specified in config but auth_basic is not enabled')
             self.active_config['password'] = config['password']
         else:
             self.active_config['password'] = None
@@ -135,9 +144,10 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
 
         influxdb_kwargs: Dict[str, Any] = {
             'url': self.active_config['url'],
-            'token': self.active_config['token'],
             'org': self.active_config['org'],
         }
+        if self.active_config['token'] is not None:
+            influxdb_kwargs['token'] = self.active_config['token']
         if self.active_config['verify_ssl'] is not None:
             influxdb_kwargs['verify_ssl'] = self.active_config['verify_ssl']
         if self.active_config['ssl_ca_cert'] is not None:
@@ -242,8 +252,11 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
                 write_precision=WritePrecision.MS,
             )
             LOG.debug('Written data point for %s: %s=%s', path, field_name, converted_value)
+            if not self.healthy.value:
+                self.healthy._set_value(value=True)  # pylint: disable=protected-access
         except Exception as err:  # pylint: disable=broad-except
             LOG.error('Failed to write data point for %s to InfluxDB: %s', path, err)
+            self.healthy._set_value(value=False)  # pylint: disable=protected-access
 
     def _convert_value(self, value) -> Optional[bool | int | float | str]:  # pylint: disable=too-many-return-statements
         """

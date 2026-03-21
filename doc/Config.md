@@ -32,10 +32,8 @@ The `type` and config options specific to your connector or plugin can be found 
             {
                 "type": "influxdb", // Minimal definition for the InfluxDB Connection
                 "config": {
-                    "url": "http://localhost:8086", // URL of the InfluxDB server
-                    "token": "your-influxdb-token", // InfluxDB API token
-                    "org": "your-org", // InfluxDB organisation name
-                    "bucket": "your-bucket" // InfluxDB bucket to write data into
+                    "url": "http://localhost:8086", // URL of the InfluxDB server (required)
+                    "token": "your-influxdb-token" // InfluxDB API token (required unless auth_basic is true)
                 }
             }
         ]
@@ -54,10 +52,10 @@ These are the valid options for the InfluxDB plugin
                 "disabled": false, // You can disable plugins without removing them from the config completely
                 "config": {
                     "log_level": "error", // The log level for the plugin. Otherwise uses the global log level
-                    "url": "http://localhost:8086", // URL of the InfluxDB server
-                    "token": "your-influxdb-token", // InfluxDB API token for authentication
-                    "org": "your-org", // InfluxDB organisation name
-                    "bucket": "your-bucket", // InfluxDB bucket to write data into
+                    "url": "http://localhost:8086", // URL of the InfluxDB server (required)
+                    "token": "your-influxdb-token", // InfluxDB API token for authentication (required unless auth_basic is true)
+                    "org": "carconnectivity", // InfluxDB organisation name (default: "carconnectivity")
+                    "bucket": "carconnectivity", // InfluxDB bucket to write data into (default: "carconnectivity")
                     "measurement": "carconnectivity", // InfluxDB measurement name
                     "tag_filter_regex": "carconnectivity\\.0\\./garage/WVWAB312[0-9A-Z]+/.*", // Regex to exclude matching attribute paths
                     "only_write_changes": false, // If true, only write data when the value actually changes; by default every update is written
@@ -66,8 +64,8 @@ These are the valid options for the InfluxDB plugin
                     "cert": "/path/to/client.crt", // Path to a client-side certificate file for mutual TLS; use a list ["/path/to/cert", "/path/to/key"] to specify separate cert and key files
                     "proxy": "http://proxy.example.com:8080", // Optional HTTP proxy URL
                     "auth_basic": false, // Set to true to use HTTP Basic Authentication instead of token auth (for InfluxDB 1.8 compatibility)
-                    "username": "your-username", // Username for HTTP Basic Authentication (requires auth_basic: true)
-                    "password": "your-password" // Password for HTTP Basic Authentication (requires auth_basic: true)
+                    "username": "your-username", // Username for HTTP Basic Authentication (only allowed when auth_basic is true)
+                    "password": "your-password" // Password for HTTP Basic Authentication (only allowed when auth_basic is true)
                 }
             }
         ]
