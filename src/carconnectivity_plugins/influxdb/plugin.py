@@ -85,22 +85,14 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         else:
             self.active_config['tag_filter_regex'] = None
 
-        if 'ignore_for' in config and config['ignore_for'] is not None:
-            self.active_config['ignore_for'] = config['ignore_for']
+        if 'only_write_changes' in config and config['only_write_changes'] is not None:
+            self.active_config['only_write_changes'] = config['only_write_changes']
         else:
-            self.active_config['ignore_for'] = 5
-
-        if 'republish_on_update' in config and config['republish_on_update'] is not None:
-            self.active_config['republish_on_update'] = config['republish_on_update']
-        else:
-            self.active_config['republish_on_update'] = False
-
-        self._startup_time: Optional[datetime] = None
+            self.active_config['only_write_changes'] = False
 
     def startup(self) -> None:
         LOG.info("Starting InfluxDB plugin")
         self._stop_event.clear()
-        self._startup_time = datetime.now(tz=timezone.utc)
 
         self._influxdb_client = InfluxDBClient(
             url=self.active_config['url'],
@@ -109,13 +101,14 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         )
         self._write_api = self._influxdb_client.write_api(write_options=SYNCHRONOUS)
 
-        # Register observer for carconnectivity events
-        if self.active_config['republish_on_update']:
-            observer_flags: Observable.ObserverEvent = (Observable.ObserverEvent.UPDATED
+        # Register observer for carconnectivity events.
+        # By default write on every update; when only_write_changes is set, write only on VALUE_CHANGED.
+        if self.active_config['only_write_changes']:
+            observer_flags: Observable.ObserverEvent = (Observable.ObserverEvent.VALUE_CHANGED
                                                         | Observable.ObserverEvent.ENABLED
                                                         | Observable.ObserverEvent.DISABLED)
         else:
-            observer_flags = (Observable.ObserverEvent.VALUE_CHANGED
+            observer_flags = (Observable.ObserverEvent.UPDATED
                               | Observable.ObserverEvent.ENABLED
                               | Observable.ObserverEvent.DISABLED)
         self.car_connectivity.add_observer(self._on_carconnectivity_event, observer_flags, priority=Observable.ObserverPriority.USER_MID)
@@ -128,8 +121,8 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         """
         Callback for car connectivity events.
 
-        On value change (or update if republish_on_update is set) it writes the new value
-        as a data point into InfluxDB.
+        By default writes a data point on every update. When only_write_changes is set,
+        only writes on VALUE_CHANGED events.
 
         Args:
             element (Observable): The element that triggered the event.
@@ -141,20 +134,12 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         if not isinstance(element, attributes.GenericAttribute):
             return
 
-        # Only process value changes (and optionally updates)
-        if not ((flags & Observable.ObserverEvent.VALUE_CHANGED)
-                or (self.active_config['republish_on_update'] and (flags & Observable.ObserverEvent.UPDATED))):
+        # Only write data points for value events, not enable/disable events
+        if not ((flags & Observable.ObserverEvent.VALUE_CHANGED) or (flags & Observable.ObserverEvent.UPDATED)):
             return
 
         if not element.enabled:
             return
-
-        # Ignore updates during startup to avoid writing stale data
-        if self._startup_time is not None and self.active_config['ignore_for'] > 0:
-            elapsed = (datetime.now(tz=timezone.utc) - self._startup_time).total_seconds()
-            if elapsed < self.active_config['ignore_for']:
-                LOG.debug('Ignoring update for %s (startup grace period)', element.get_absolute_path())
-                return
 
         path: str = element.get_absolute_path()
 
