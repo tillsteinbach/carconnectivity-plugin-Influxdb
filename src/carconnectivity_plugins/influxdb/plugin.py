@@ -229,17 +229,10 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         Returns:
             None
         """
-        if not isinstance(element, attributes.GenericAttribute):
-            return
-
-        if not self.healthy.value:
-            return
-
-        # Only write data points for value events, not enable/disable events
-        if not ((flags & Observable.ObserverEvent.VALUE_CHANGED) or (flags & Observable.ObserverEvent.UPDATED)):
-            return
-
-        if not element.enabled:
+        if not self.healthy.value \
+                or not isinstance(element, attributes.GenericAttribute) \
+                or not ((flags & Observable.ObserverEvent.VALUE_CHANGED) or (flags & Observable.ObserverEvent.UPDATED)) \
+                or not element.enabled:
             return
 
         path: str = element.get_absolute_path()
