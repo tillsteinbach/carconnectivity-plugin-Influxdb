@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timezone
 from enum import Enum
 
-from influxdb_client import InfluxDBClient
+from influxdb_client import InfluxDBClient, HealthCheck
 from influxdb_client.client.write_api import SYNCHRONOUS
 from influxdb_client.domain.write_precision import WritePrecision
 
@@ -178,9 +178,42 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
                               | Observable.ObserverEvent.DISABLED)
         self.car_connectivity.add_observer(self._on_carconnectivity_event, observer_flags, priority=Observable.ObserverPriority.USER_MID)
 
-        self.connection_state._set_value(value=ConnectionState.CONNECTED)  # pylint: disable=protected-access
-        self.healthy._set_value(value=True)  # pylint: disable=protected-access
+        health: HealthCheck = self._influxdb_client.health()  # Test connection to InfluxDB
+        if health.status != 'pass':
+            LOG.error('InfluxDB health check failed: %s', health.message)
+            self.healthy._set_value(value=False)  # pylint: disable=protected-access
+            self.connection_state._set_value(value=ConnectionState.DISCONNECTED)  # pylint: disable=protected-access
+        else:
+            self.connection_state._set_value(value=ConnectionState.CONNECTED)  # pylint: disable=protected-access
+            self.healthy._set_value(value=True)  # pylint: disable=protected-access
+
+        health_check_thread = threading.Thread(target=self._health_check_loop, daemon=True)
+        health_check_thread.start()
         LOG.debug("Starting InfluxDB plugin done")
+
+    def _health_check_loop(self) -> None:
+        """Background thread that periodically checks InfluxDB health."""
+        while not self._stop_event.is_set():
+            try:
+                if self._influxdb_client is not None:
+                    health: HealthCheck = self._influxdb_client.health()
+                    is_healthy = health.status == 'pass'
+                    was_healthy = self.healthy.value
+                    self.healthy._set_value(value=is_healthy)  # pylint: disable=protected-access
+                    if is_healthy:
+                        self.connection_state._set_value(value=ConnectionState.CONNECTED)  # pylint: disable=protected-access
+                    else:
+                        self.connection_state._set_value(value=ConnectionState.DISCONNECTED)  # pylint: disable=protected-access
+                    if is_healthy and not was_healthy:
+                        LOG.info('InfluxDB connection restored')
+                    elif not is_healthy and was_healthy:
+                        LOG.warning('InfluxDB connection lost: %s', health.message)
+            except Exception as err:  # pylint: disable=broad-except
+                LOG.error('Error during InfluxDB health check: %s', err)
+                if self.healthy.value:
+                    self.healthy._set_value(value=False)  # pylint: disable=protected-access
+                    self.connection_state._set_value(value=ConnectionState.DISCONNECTED)  # pylint: disable=protected-access
+            self._stop_event.wait(60)
 
     def _on_carconnectivity_event(self, element, flags) -> None:
         """
@@ -197,6 +230,9 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
             None
         """
         if not isinstance(element, attributes.GenericAttribute):
+            return
+
+        if not self.healthy.value:
             return
 
         # Only write data points for value events, not enable/disable events
