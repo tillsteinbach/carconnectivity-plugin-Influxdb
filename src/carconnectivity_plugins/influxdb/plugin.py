@@ -184,7 +184,7 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
                 bucket=self.active_config['bucket'],
                 org=self.active_config['org'],
                 record=record,
-                write_precision=WritePrecision.NANOSECONDS,
+                write_precision=WritePrecision.MS,
             )
             LOG.debug('Written data point for %s: %s=%s', path, field_name, converted_value)
         except Exception as err:  # pylint: disable=broad-except
