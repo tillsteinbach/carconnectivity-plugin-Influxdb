@@ -157,9 +157,9 @@ class Plugin(BasePlugin):  # pylint: disable=too-many-instance-attributes
         if converted_value is None:
             return
 
-        # Determine the timestamp: prefer last_changed, fall back to now
-        if element.last_changed is not None:
-            record_time: datetime = element.last_changed
+        # Determine the timestamp: prefer last_updated, fall back to now
+        if element.last_updated is not None:
+            record_time: datetime = element.last_updated
             if record_time.tzinfo is None:
                 record_time = record_time.replace(tzinfo=timezone.utc)
         else:
