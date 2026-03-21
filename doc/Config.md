@@ -74,7 +74,6 @@ These are the valid options for the InfluxDB plugin
     }
 }
 ```
-> **Security note:** Avoid committing credentials such as `token`, `username`, or `password` directly into your config files. Consider using environment variable substitution or a secrets management solution supported by your deployment environment.
 
 ### Connector Options
 Valid Options for connectors can be found here:
