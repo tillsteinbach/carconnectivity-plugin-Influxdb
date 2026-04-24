@@ -14,8 +14,8 @@ authors = [
     { name = "Till Steinbach" }
 ]
 dependencies = [
-    "carconnectivity>=0.11.8",
-    "influxdb-client>=1.40.0",
+    "carconnectivity>=0.11.9",
+    "influxdb-client>=1.50.0",
     "python-dateutil~=2.9.0"
 ]
 readme = "README.md"
